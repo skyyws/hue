@@ -1240,6 +1240,9 @@ class TestDocument2ImportExport(object):
     response = self.client.get('/desktop/api2/doc/export/', {'documents': json.dumps([owned_query.id]), 'format': 'json'})
     documents = response.content
 
+    if isinstance(documents, bytes):
+      documents = documents.decode('utf-8')
+
     response = self.client.post('/desktop/api2/doc/import/', {'documents': documents})
     data = json.loads(response.content)
 
@@ -1288,6 +1291,9 @@ class TestDocument2ImportExport(object):
     response = self.client.get('/desktop/api2/doc/export/', {'documents': json.dumps([owned_query.id]), 'format': 'json'})
     documents = response.content
 
+    if isinstance(documents, bytes):
+      documents = documents.decode('utf-8')
+
     # Test that importing non-owned doc copies it, sets parent to home
     response = self.client_not_me.post('/desktop/api2/doc/import/', {'documents': documents})
 
@@ -1322,6 +1328,9 @@ class TestDocument2ImportExport(object):
     query1.delete()
     query2.delete()
     workflow.delete()
+
+    if not isinstance(documents, str):
+      documents = documents.decode('utf-8')
 
     response = self.client_not_me.post('/desktop/api2/doc/import/', {'documents': documents})
     assert_true(Document2.objects.filter(name='query1.sql').exists())
