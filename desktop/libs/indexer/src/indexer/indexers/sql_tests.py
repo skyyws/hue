@@ -28,16 +28,12 @@ from useradmin.models import User
 
 from indexer.indexers.sql import SQLIndexer
 
+
 if sys.version_info[0] > 2:
   from unittest.mock import patch, Mock, MagicMock
 else:
   from mock import patch, Mock, MagicMock
 
-
-TABLE_PROPERTIES = [
-  '%s = %s' % (key, val)
-  for key, val in OrderedDict({"transactional": "false", "skip.header.line.count": "1"}).items()
-]
 
 
 class TestSQLIndexer(object):
@@ -145,7 +141,7 @@ def test_generate_create_text_table_with_data_partition():
 
   sql = SQLIndexer(user=request.user, fs=request.fs).create_table_from_a_file(source, destination).get_str()
 
-  assert_true('''USE default;''' in  sql, sql)
+  assert_true('''USE default;''' in sql, sql)
 
   statement = '''CREATE TABLE `default`.`customer_stats`
 (
@@ -159,11 +155,11 @@ ROW FORMAT   DELIMITED
     FIELDS TERMINATED BY ','
     COLLECTION ITEMS TERMINATED BY '\\002'
     MAP KEYS TERMINATED BY '\\003'
-  STORED AS TextFile TBLPROPERTIES(%s)
-;''' % TABLE_PROPERTIES
+  STORED AS TextFile TBLPROPERTIES("skip.header.line.count" = "1", "transactional" = "false")
+;'''
   assert_true(statement in sql, sql)
 
-  assert_true('''LOAD DATA INPATH '/user/romain/customer_stats.csv' INTO TABLE `default`.`customer_stats` PARTITION (new_field_1='AAA');''' in  sql, sql)
+  assert_true('''LOAD DATA INPATH '/user/romain/customer_stats.csv' INTO TABLE `default`.`customer_stats` PARTITION (new_field_1='AAA');''' in sql, sql)
 
 
 def test_generate_create_kudu_table_with_data():
@@ -173,7 +169,7 @@ def test_generate_create_kudu_table_with_data():
 
   sql = SQLIndexer(user=request.user, fs=request.fs).create_table_from_a_file(source, destination).get_str()
 
-  assert_true('''DROP TABLE IF EXISTS `default`.`hue__tmp_index_data`;''' in  sql, sql)
+  assert_true('''DROP TABLE IF EXISTS `default`.`hue__tmp_index_data`;''' in sql, sql)
 
   statement = '''CREATE EXTERNAL TABLE `default`.`hue__tmp_index_data`
 (
@@ -198,8 +194,8 @@ def test_generate_create_kudu_table_with_data():
 ROW FORMAT   DELIMITED
     FIELDS TERMINATED BY ','
   STORED AS TextFile LOCATION '/A'
-TBLPROPERTIES(%s)''' % TABLE_PROPERTIES
-  assert_true(statement in sql in sql, sql)
+TBLPROPERTIES("skip.header.line.count" = "1", "transactional" = "false")'''
+  assert_true(statement in sql, sql)
 
   assert_true('''CREATE TABLE `default`.`index_data` COMMENT "Big Data"
         PRIMARY KEY (id)
@@ -209,7 +205,7 @@ TBLPROPERTIES(%s)''' % TABLE_PROPERTIES
         'kudu.num_tablet_replicas' = '1'
         )
         AS SELECT `id`, `business_id`, `date`, `funny`, `stars`, `text`, `type`, `useful`, `user_id`, `name`, `full_address`, `latitude`, `longitude`, `neighborhoods`, `open`, `review_count`, `state`
-        FROM `default`.`hue__tmp_index_data`;''' in  sql, sql)
+        FROM `default`.`hue__tmp_index_data`;''' in sql, sql)
 
 
 def test_generate_create_parquet_table():
@@ -221,7 +217,7 @@ def test_generate_create_parquet_table():
 
   sql = SQLIndexer(user=request.user, fs=request.fs).create_table_from_a_file(source, destination).get_str()
 
-  assert_true('''USE default;''' in  sql, sql)
+  assert_true('''USE default;''' in sql, sql)
 
   statement = '''CREATE EXTERNAL TABLE `default`.`hue__tmp_parquet_table`
 (
@@ -235,18 +231,17 @@ def test_generate_create_parquet_table():
     COLLECTION ITEMS TERMINATED BY '\\002'
     MAP KEYS TERMINATED BY '\\003'
   STORED AS TextFile LOCATION '/user/hue/data'
-TBLPROPERTIES(%s)
-;''' % TABLE_PROPERTIES
-  assert_true(statement in  sql, sql)
+TBLPROPERTIES("skip.header.line.count" = "1", "transactional" = "false")
+;'''
+  assert_true(statement in sql, sql)
 
   assert_true('''CREATE TABLE `default`.`parquet_table`
         STORED AS parquet
         AS SELECT *
         FROM `default`.`hue__tmp_parquet_table`;
-''' in  sql, sql)
+''' in sql, sql)
 
-  assert_true('''DROP TABLE IF EXISTS `default`.`hue__tmp_parquet_table`;
-''' in  sql, sql)
+  assert_true('''DROP TABLE IF EXISTS `default`.`hue__tmp_parquet_table`;''' in sql, sql)
 
 
 def test_generate_create_orc_table_transactional():
@@ -258,7 +253,7 @@ def test_generate_create_orc_table_transactional():
 
   sql = SQLIndexer(user=request.user, fs=request.fs).create_table_from_a_file(source, destination).get_str()
 
-  assert_true('''USE default;''' in  sql, sql)
+  assert_true('''USE default;''' in sql, sql)
 
   statement = '''CREATE EXTERNAL TABLE `default`.`hue__tmp_parquet_table`
 (
@@ -272,19 +267,19 @@ def test_generate_create_orc_table_transactional():
     COLLECTION ITEMS TERMINATED BY '\\002'
     MAP KEYS TERMINATED BY '\\003'
   STORED AS TextFile LOCATION '/user/hue/data'
-TBLPROPERTIES(%s)
-;''' % TABLE_PROPERTIES
-  assert_true(statement in sql in  sql, sql)
+TBLPROPERTIES("skip.header.line.count" = "1", "transactional" = "false")
+;'''
+  assert_true(statement in sql, sql)
 
   assert_true('''CREATE TABLE `default`.`parquet_table`
         STORED AS orc
 TBLPROPERTIES("transactional"="true", "transactional_properties"="insert_only")
         AS SELECT *
         FROM `default`.`hue__tmp_parquet_table`;
-''' in  sql, sql)
+''' in sql, sql)
 
   assert_true('''DROP TABLE IF EXISTS `default`.`hue__tmp_parquet_table`;
-''' in  sql, sql)
+''' in sql, sql)
 
 
 def test_generate_create_empty_kudu_table():
@@ -305,4 +300,4 @@ def test_generate_create_empty_kudu_table():
   `vrfcn_city_lat` double ,
   `vrfcn_city_lon` double , PRIMARY KEY (acct_client)
 )   STORED AS kudu TBLPROPERTIES("transactional" = "false")
-;''' in  sql, sql)
+;''' in sql, sql)
